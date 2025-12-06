@@ -1,0 +1,9 @@
+
+# ! this is just to build service in src, deployment is done through terraform 
+
+services:
+  airflow_hydrosat_pdqueiros:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: airflow-hydrosat-pdqueiros:latest

@@ -1,0 +1,72 @@
+x-storage-common:
+  &storage-common
+    # there were permisisons issues due to mapped volume, so let's do this for prototyping
+    user: "0:0"
+    env_file:
+      - .env
+    networks:
+      - hydrosat-network
+
+services:
+  minio:
+    <<: *storage-common
+    container_name: storage-minio
+    # later versions don't have the access keys UI
+    image: quay.io/minio/minio:RELEASE.2025-01-20T14-49-07Z
+    volumes:
+      - ./data/minio/data/:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${MINIO_PORT}/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+
+  postgres-hydrosat:
+    <<: *storage-common
+    container_name: postgres-hydrosat
+    image: postgres:16.4-bullseye
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - ./data/postgres/data/:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MLFLOW_POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+
+  create-bucket:
+    <<: *storage-common
+    image: minio/mc:latest
+    container_name: storage-minio-create-bucket
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c '
+        mc alias set myminio http://${MINIO_HOST}:${MINIO_PORT} \
+          ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
+        mc mb --ignore-existing myminio/${S3_BUCKET} &&
+        if ! mc admin accesskey create myminio --access-key ${AWS_ACCESS_KEY_ID} --secret-key ${AWS_SECRET_ACCESS_KEY}; then
+          echo "Failed to create access key (exit code $?), it already probably existed?"
+        fi
+        
+      '
+    restart: "no"
+
+networks:
+  hydrosat-network:
+    name: hydrosat-network

@@ -1,0 +1,36 @@
+[project]
+name = "airflow_hydrosat_pdqueiros"
+version = "0.0.1"
+authors = [{ name = "Pedro Queiros", email = "coding.paradox013@passmail.net" }]
+requires-python = "~=3.11"
+readme = "README.md"
+maintainers = [{ name = "Pedro Queiros", email = "coding.paradox013@passmail.net" }]
+dependencies = [
+    "retry",
+    "ruff",
+    "uuid6",
+    "boto3",
+    "numpy",
+    "shapely",
+]
+
+[dependency-groups]
+
+
+[project.urls]
+Repository = "https://github.com/PedroMTQ/airflow_hydrosat_pdqueiros.git"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.ruff]
+line-length = 110
+lint.select = ["E",  "W",  "F",  "I", "B"]
+lint.ignore=["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+
+
