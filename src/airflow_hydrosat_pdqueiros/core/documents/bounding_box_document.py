@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 
 import numpy as np
-
-from hydrosat_pdqueiros.services.core.documents.base_document import BaseDocument
+from airflow_hydrosat_pdqueiros.core.documents.base_document import BaseDocument
 
 
 @dataclass

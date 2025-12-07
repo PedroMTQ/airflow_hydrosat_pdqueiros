@@ -417,3 +417,192 @@ You can find below some points which I imagine would be the next logical steps f
 - Improve on [late date arrival](#note-on-late-data-arrival)
 - Configure dagster properly, e.g., setup credentials
 - Pass secrets correctly, i.e., the "terraformic" way 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Setup
+
+### Base requirements
+
+You need to have these installed on your machine:
+- Install [Docker Desktop](https://www.docker.com/get-started/) if running this repo on WSL
+- Install GPU drivers, I have an Nvidia GPU so I've installed their respective drivers.
+
+
+### GPU setup
+
+I assume you have a system with a GPU, if not I would avoid running the fine-tuning step describe below.
+
+
+If you are using WSL via a Windows sytem with a GPU install [Docker desktop](https://docs.docker.com/desktop/features/gpu/) for a straightforward way to enable GPU support on your docker engine.
+You can test if your GPU(s) are available by running this:
+```bash
+docker run --rm -it --gpus=all nvcr.io/nvidia/k8s/cuda-sample:nbody nbody -gpu -benchmark
+```
+You should see something like this:
+```bash
+> Compute 8.6 CUDA device: [NVIDIA GeForce RTX 3080]
+69632 bodies, total time for 10 iterations: 54.144 ms
+= 895.504 billion interactions per second
+= 17910.074 single-precision GFLOP/s at 20 flops per interaction
+```
+
+You can also run this to check GPU access:
+```bash
+docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+```
+
+
+## Docker deployment
+
+Below you will find the instructions to setup all the necessary requirements to run Airflow and respective DAGs required for fine-tuning a Geneformer for cell type annotation.
+
+**Note that I've included a `.env` file which contains all the necessary environmental variables for setting up your containers**
+
+**Make sure you start Docker Desktop so that you have GPU access.**
+
+To test if your machine's GPUs are available run:
+```bash
+docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+```
+
+
+To deploy all the necessary containers run:
+```bash
+# we are using a custom Airflow image since we need open telemetry and docker operators
+docker compose -f docker-compose-build.yaml build helical-pdqueiros-airflow
+docker compose -f docker-compose-storage.yaml up -d
+docker compose -f docker-compose-monitoring.yaml up -d
+docker compose -f docker-compose-airflow.yaml up -d
+```
+
+This will deploy all basic services with docker, including:
+- minio for S3 simulation and Mlflow storage
+- postgres for Mlflow and Airflow. Note that I used the base docker compose file from [Airflow](https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html). To avoid exposing the host's docker.sock I'm also deploying a proxy (docker-socket-proxy) as explained [here](https://github.com/benjcabalona1029/DockerOperator-Airflow-Container/tree/master) and [here](https://medium.com/@benjcabalonajr_56579/using-docker-operator-on-airflow-running-inside-a-docker-container-7df5286daaa5).
+- Prometheus, Pushgateway, Cadvisor, Redis, Grafana, node-exporter, and otel-collector for monitoring. Otel-collector is used for Airflow monitoring, whereas the others are used for system and containers monitoring.
+
+Make sure you have all these containers:
+```bash
+IMAGE                                              NAMES                                       STATUS
+helical-pdqueiros-airflow:latest                   helical_pdqueiros-airflow-worker-1          Up 4 minutes (healthy)
+helical-pdqueiros-airflow:latest                   helical_pdqueiros-airflow-apiserver-1       Up 4 minutes (healthy)
+helical-pdqueiros-airflow:latest                   helical_pdqueiros-airflow-dag-processor-1   Up 4 minutes (healthy)
+helical-pdqueiros-airflow:latest                   helical_pdqueiros-airflow-triggerer-1       Up 4 minutes (healthy)
+helical-pdqueiros-airflow:latest                   helical_pdqueiros-airflow-scheduler-1       Up 4 minutes (healthy)
+postgres:16                                        postgres-airflow                            Up 5 minutes (healthy)
+redis:7.2-bookworm                                 redis-airflow                               Up 5 minutes (healthy)
+tecnativa/docker-socket-proxy:v0.4.1               airflow-docker-socket                       Up 5 minutes
+grafana/grafana-oss                                monitoring-grafana                          Up 5 minutes
+prom/prometheus:latest                             monitoring-prometheus                       Up 5 minutes
+gcr.io/cadvisor/cadvisor:latest                    monitoring-cadvisor                         Up 5 minutes (healthy)
+otel/opentelemetry-collector-contrib               monitoring-otel-collector                   Up 5 minutes
+quay.io/prometheus/node-exporter:latest            monitoring-node-exporter                    Up 5 minutes
+prom/pushgateway                                   monitoring-pushgateway                      Up 5 minutes
+redis:latest                                       redis-monitoring                            Up 5 minutes
+ghcr.io/mlflow/mlflow:latest                       storage-mlflow-server                       Up 5 minutes (healthy)
+postgres:16.4-bullseye                             postgres-mlflow                             Up 5 minutes (healthy)
+quay.io/minio/minio:RELEASE.2025-01-20T14-49-07Z   storage-minio                               Up 5 minutes (healthy)
+```
+
+The main tools here (i.e., that you actually might interact with) are : Airflow, Grafana, Mlflow, and Minio. All others are containers that are "supporting" these tools.
+
+Now that you are done deploying the services, you can now build the images for the containers that will be deployed by Airflow via Docker operators. There's 2 versions here, `helical-pdqueiros-cpu` is contains CPU-only requirements, whereas `helical-pdqueiros-gpu` contains all the requirements for running the actual fine-tuning. You likely could further trim the GPU image but for the sake of keeping it simple, I've used Helical-AI's Dockerfile as a template.
+
+```bash
+docker compose -f docker-compose-build.yaml build helical-pdqueiros-cpu
+docker compose -f docker-compose-build.yaml build helical-pdqueiros-gpu
+```
+
+This image contains all my source code as well as Helical's package (among a few other dependencies).
+
+You should end up with these images:
+```bash
+REPOSITORY                             TAG                            IMAGE ID       CREATED          SIZE
+helical-pdqueiros-cpu                  latest                         2a6c2dd3244a   6 minutes ago    3.87GB
+helical-pdqueiros-gpu                  latest                         b064f44875c6   37 minutes ago   20.8GB
+helical-pdqueiros-airflow              latest                         bb0a6e2e764c   56 minutes ago   2.92GB
+```
+
+Assuming everything was deployed correctly, you should now have access to all the necessary services and you can check their respective dashboards at:
+
+- [Minio](http://localhost:9001) (credentials: minio/minio123)
+- [Mlflow](http://localhost:5000)
+- [Grafana](http://localhost:3000/login) (credentials: admin/admin)
+- [Airflow](http://localhost:8080/) (credentials: airflow/airflow)
+- [Prometheus](http://localhost:9090/)
+
+
+When you access the [Minio](http://localhost:9001) dashboard, you should see 2 buckets: `helical` and `mlflow`; the `helical` bucket is where you will load your test data, which I've included in `tests/test_data.h5ad`.
+
+
+Now, go to [Airflow](http://localhost:8080/) and you should see no DAGs due to :
+
+```bash
+Traceback (most recent call last):
+  File "/home/airflow/.local/lib/python3.12/site-packages/airflow/sdk/definitions/variable.py", line 53, in get
+    return _get_variable(key, deserialize_json=deserialize_json)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/airflow/.local/lib/python3.12/site-packages/airflow/sdk/execution_time/context.py", line 265, in _get_variable
+    raise AirflowRuntimeError(
+airflow.sdk.exceptions.AirflowRuntimeError: VARIABLE_NOT_FOUND: {'message': 'Variable MINIO_CONNECTION not found'}
+```
+
+![airflow-dags-error](./images/airflow-dags-error.png)
+
+
+
+**This is expected since we didn't yet create the necessary connection in Airflow.**
+
+So go to the Airflow UI, and create the connection with these details:
+
+- in the `Connection ID` field add `minio_connection` (that's what we defined in the `.env` but you could change it)
+- Connection type: `Amazon Web Services`
+- AWS Access Key ID: `BEDa33cuSs9aahxEWzG` (also defined in the `.env`)
+- AWS Secret Access Key: `zsKNU39z7TlmyqiqwdxL6ZtCk9TpvsH3AMJX9qDl` (also defined in the .`env`)
+- In the Extra Fields JSON add this:
+```json
+{
+    "endpoint_url": "http://storage-minio:9000"
+}
+```
+![minio-connection](./images/minio-connection.png)
+
+Save the connection.
+
+Now, while I've used load_dotenv to load our environmental variables (by mounting the `.env` file), in a production environment you are better off defining variables through the UI and then using `from airflow.sdk import Variable`. You can see the `MINIO_CONNECTION` example in the code and in the image below:
+
+So go to the Airflow UI again and create this Variable:
+- Key: `MINIO_CONNECTION`
+- Value: `minio_connection` (this is the connection ID of the connection you created above)
+
+![minio-connection-variable](./images/minio-connection-variable.png)
+
+Save the variable and wait 10-30 seconds. Once Airflow refreshes the DAGs, you should be able to see the workflow DAGs:
+
+![airflow-dags](./images/airflow-dags.png)
+
+
+
+If you open [Grafana](http://localhost:3000/login) you will have multiple dashboards, `Helical dashboard` among them, which is where you can track system resources and Airflow runs.
+
+![grafana-dashboard](./images/grafana-dashboard.png)

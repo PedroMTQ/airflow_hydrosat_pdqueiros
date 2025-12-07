@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 
 import numpy as np
+from airflow_hydrosat_pdqueiros.core.documents.base_document import BaseDocument
+from airflow_hydrosat_pdqueiros.core.documents.bounding_box_document import BoundingBoxDocument
 from shapely.geometry import box
-
-from hydrosat_pdqueiros.services.core.documents.base_document import BaseDocument
-from hydrosat_pdqueiros.services.core.documents.bounding_box_document import BoundingBoxDocument
 
 
 @dataclass

@@ -77,3 +77,5 @@ terraform.tfstate.*
 crash.log
 *.tfplan
 .terraform.tfstate.lock.info
+
+envs

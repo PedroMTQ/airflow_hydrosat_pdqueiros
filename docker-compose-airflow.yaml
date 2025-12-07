@@ -60,7 +60,6 @@ x-airflow-common:
   user: "${AIRFLOW_UID:-50000}:0"
   environment:
     &airflow-common-env
-
     # for metrics
     AIRFLOW__METRICS__STATSD_ON: "False"
     AIRFLOW__METRICS__OTEL_HOST: "monitoring-otel-collector"
@@ -71,7 +70,6 @@ x-airflow-common:
     AIRFLOW__METRICS__OTEL_PORT: "4318"
     # TODO disable this
     AIRFLOW__TRACES__OTEL_DEBUG_TRACES_ON: "True"
-
     
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
@@ -93,14 +91,19 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
   volumes:
+    - /var/run/docker.sock:/var/run/docker.sock # Mount the host's Docker socket
     - ./config/airflow.cfg:/opt/airflow/config/airflow.cfg
+    - ./data/airflow/logs:/opt/airflow/logs
     - ./dags:/opt/airflow/dags
     - ./data/hydrosat-pdqueiros:/app/tmp/
     - ./plugins:/opt/airflow/plugins
-
-    - ./data/airflow/logs:/opt/airflow/logs
-    - .env:/app/.env
-    - /var/run/docker.sock:/var/run/docker.sock # Mount the host's Docker socket
+    # for env installation for task.external_python
+    - ./scripts:/opt/airflow/scripts
+    - ./dist:/opt/airflow/app/dist/
+    - ./pyproject.toml:/opt/airflow/app/pyproject.toml
+    - .env:/opt/airflow/app/.env
+    
+    
   depends_on:
     &airflow-common-depends-on
     redis-airflow:
@@ -287,14 +290,14 @@ services:
         echo
         echo "Creating missing opt dirs if missing:"
         echo
-        mkdir -v -p /opt/airflow/{logs,dags,plugins,config}
+        mkdir -v -p ${ALL_SHARED_DIRS}
         echo
         echo "Airflow version:"
         /entrypoint airflow version
         echo
         echo "Files in shared volumes:"
         echo
-        ls -la /opt/airflow/{logs,dags,plugins,config}
+        ls -la ${ALL_SHARED_DIRS}
         echo
         echo "Running airflow config list to create default config file if missing."
         echo
@@ -302,7 +305,7 @@ services:
         echo
         echo "Files in shared volumes:"
         echo
-        ls -la /opt/airflow/{logs,dags,plugins,config}
+        ls -la ${ALL_SHARED_DIRS}
         echo
         echo "Change ownership of files in /opt/airflow to ${AIRFLOW_UID}:0"
         echo
@@ -310,11 +313,11 @@ services:
         echo
         echo "Change ownership of files in shared volumes to ${AIRFLOW_UID}:0"
         echo
-        chown -v -R "${AIRFLOW_UID}:0" /opt/airflow/{logs,dags,plugins,config}
+        chown -v -R "${AIRFLOW_UID}:0" ${ALL_SHARED_DIRS}
         echo
         echo "Files in shared volumes:"
         echo
-        ls -la /opt/airflow/{logs,dags,plugins,config}
+        ls -la ${ALL_SHARED_DIRS}
 
     # yamllint enable rule:line-length
     environment:

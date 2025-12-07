@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field
 
 import numpy as np
-
-from hydrosat_pdqueiros.services.io.logger import logger
+from airflow_hydrosat_pdqueiros.io.logger import logger
 
 
 @dataclass

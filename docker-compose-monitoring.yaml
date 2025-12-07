@@ -1,0 +1,118 @@
+services:
+
+  prometheus:
+    container_name: monitoring-prometheus
+    image: prom/prometheus:latest
+    networks:
+      - hydrosat-network
+    restart: unless-stopped
+    ports:
+      - 9090:9090
+    user: '0'
+    volumes:
+      - ./config/monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - ./data/prometheus/:/prometheus
+    command:
+      - '--web.enable-lifecycle'
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--web.enable-admin-api'
+    depends_on:
+      - pushgateway
+      - cadvisor
+  
+  # for ephemeral jobs, i.e., DAGs
+  pushgateway:
+    container_name: monitoring-pushgateway
+    image: prom/pushgateway
+    networks:
+      - hydrosat-network
+    ports:
+      - 9091:9091
+
+  cadvisor:
+    container_name: monitoring-cadvisor
+    image: gcr.io/cadvisor/cadvisor:latest
+    networks:
+      - hydrosat-network
+    user: '0'
+    ports:
+    - 8082:8080
+    volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:rw
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro
+    depends_on:
+    - redis-monitoring
+  redis-monitoring:
+    container_name: redis-monitoring
+    volumes:
+      - ./data/redis-monitoring/:/data
+    networks:
+    - hydrosat-network
+    image: redis:latest
+    ports:
+    - 6379:6379
+
+  grafana:
+    container_name: monitoring-grafana
+    networks:
+      - hydrosat-network
+    image: grafana/grafana-oss
+    restart: unless-stopped
+    ports:
+     - 3000:3000
+    user: '0'
+    volumes:
+      - ./data/grafana/data:/var/lib/grafana
+      - ./config/monitoring/recipes/:/var/lib/grafana/dashboards
+      - ./config/monitoring/provisioning/main.yaml:/etc/grafana/provisioning/dashboards/main.yaml
+      - ./config/monitoring/provisioning/datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
+    depends_on:
+      - prometheus
+
+  node-exporter:
+    container_name: monitoring-node-exporter
+    networks:
+      - hydrosat-network
+    image: quay.io/prometheus/node-exporter:latest
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    user: '0'
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - 9101:9100
+
+
+  otel-collector:
+    user: '0'
+    container_name: monitoring-otel-collector
+    networks:
+      - hydrosat-network
+    image: otel/opentelemetry-collector-contrib
+    volumes:
+      - ./config/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - 1888:1888 # pprof extension
+      - 8888:8888 # Prometheus metrics exposed by the Collector
+      - 8889:8889 # Prometheus exporter metrics
+      - 13133:13133 # health_check extension
+      - 4317:4317 # OTLP gRPC receiver
+      - 4318:4318 # OTLP http receiver
+      - 55679:55679 # zpages extension
+
+
+
+
+networks:
+  hydrosat-network:
+    name: hydrosat-network
+    external: true
+

@@ -29,25 +29,6 @@ services:
       timeout: 3s
       retries: 20
 
-
-  postgres-hydrosat:
-    <<: *storage-common
-    container_name: postgres-hydrosat
-    image: postgres:16.4-bullseye
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      PGDATA: /var/lib/postgresql/data
-    volumes:
-      - ./data/postgres/data/:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${MLFLOW_POSTGRES_USER}"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-
   create-bucket:
     <<: *storage-common
     image: minio/mc:latest

@@ -1,4 +1,4 @@
 set -a
 source .env
-source local.env
+export MINIO_HOST="localhost"
 set +a
