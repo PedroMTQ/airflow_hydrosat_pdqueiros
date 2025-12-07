@@ -108,6 +108,17 @@ services:
       - 4318:4318 # OTLP http receiver
       - 55679:55679 # zpages extension
 
+  mailhog:
+    container_name: monitoring-mailhog
+
+    networks:
+    - hydrosat-network
+    image: mailhog/mailhog
+    logging:
+      driver: 'none'  # disable saving logs
+    ports:
+      - 1025:1025 # smtp server
+      - 8025:8025 # web ui
 
 
 
