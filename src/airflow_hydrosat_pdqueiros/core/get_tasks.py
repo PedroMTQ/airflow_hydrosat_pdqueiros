@@ -118,5 +118,5 @@ def get_bounding_boxes_tasks() -> list[dict]:
 if __name__ == '__main__':
     fields_tasks = get_fields_tasks()
     bounding_boxes_tasks = get_bounding_boxes_tasks()
-    print(f'field_tasks', fields_tasks)
-    print(f'bounding_boxes_tasks', bounding_boxes_tasks)
+    print('field_tasks', fields_tasks)
+    print('bounding_boxes_tasks', bounding_boxes_tasks)

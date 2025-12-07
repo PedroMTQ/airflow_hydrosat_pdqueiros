@@ -55,6 +55,8 @@ def process_fields_dag():
 
     chain(
             sensor_key_with_regex,
+            # I'd only create an env if this env could be semi-permanent and used globally. Otherwise I'd probably use a Docker operator for better release management.
+            # In any case, this is a good proof-of-concept
             create_env_task,
             s3_paths,
             processing_tasks

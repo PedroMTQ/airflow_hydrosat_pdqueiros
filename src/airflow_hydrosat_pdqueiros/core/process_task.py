@@ -1,12 +1,8 @@
-import json
 import os
-from pathlib import Path
 
 from airflow_hydrosat_pdqueiros.core.documents.asset_data_document import AssetDataDocument
 from airflow_hydrosat_pdqueiros.core.documents.bounding_box_document import BoundingBoxDocument
 from airflow_hydrosat_pdqueiros.core.documents.field_document import FieldDocument
-from airflow_hydrosat_pdqueiros.io.logger import logger
-from airflow_hydrosat_pdqueiros.io.s3_client import ClientS3
 from airflow_hydrosat_pdqueiros.settings import (
     BOXES_FOLDER_INPUT,
     BOXES_FOLDER_OUTPUT,
