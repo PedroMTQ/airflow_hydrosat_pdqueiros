@@ -26,7 +26,7 @@ def process_field_task(task_data: dict):
                                             document_type=FieldDocument.__name__)
     s3_output_path = os.path.join(FIELDS_FOLDER_OUTPUT, box_id, asset_data_document.file_name)
     task_processor = BaseTask()
-    task_processor.process_task(asset_data_document=asset_data_document, s3_output_path=s3_output_path)
+    task_processor.run(asset_data_document=asset_data_document, s3_output_path=s3_output_path)
 
 
 def process_bounding_box_task(task_data: dict):
@@ -40,7 +40,7 @@ def process_bounding_box_task(task_data: dict):
                                             document_type=BoundingBoxDocument.__name__)
     s3_output_path = os.path.join(BOXES_FOLDER_OUTPUT, asset_data_document.file_name)
     task_processor = BaseTask()
-    task_processor.process_task(asset_data_document=asset_data_document, s3_output_path=s3_output_path)
+    task_processor.run(asset_data_document=asset_data_document, s3_output_path=s3_output_path)
 
 if __name__ == '__main__':
     task_data = {'box_id': '01978c3831c0772bbd6ad9856cdb3834', 's3_path': 'fields/input/01978c3831c0772bbd6ad9856cdb3834/fields_2025-06-02_01978c3831d47bd5aeca4f0e754c527e.jsonl', 'date_str': '2025-06-01'}

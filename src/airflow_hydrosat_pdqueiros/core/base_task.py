@@ -11,31 +11,14 @@ class BaseTask():
     def __init__(self):
         self.s3_client = ClientS3()
 
-    def download_data_with_lock(self, s3_path, local_output_folder: str) -> list[str]:
-        '''
-        Downloads data from a given S3 folder into a local folder. A limit can be passed to allow for distributed work across multiple containers
-
-        @param: s3_input_folder the S3 folder path
-        @param: local_output_folder the local folder path
-        @param: limit the number of files to download, defaults to None for no limit.
-        '''
-
-        # we lock the file to avoid other processes catching it again
+    def run(self, asset_data_document: AssetDataDocument, s3_output_path: str):
         try:
-            locked_s3_path = self.s3_client.lock_file(s3_path=s3_path)
-        except Exception as e:
-            logger.error(f'Failed to lock file, skipping {s3_path} due to {e}')
-        try:
-            locked_local_path = self.s3_client.download_file(s3_path=locked_s3_path,
-                                                             output_folder=local_output_folder)
-            local_path = self.s3_client.get_unlocked_file_path(locked_local_path)
-            os.rename(locked_local_path, local_path)
-        except Exception as e:
-            self.s3_client.unlock_file(locked_s3_path=s3_path)
-            logger.error(f'Failed to download {s3_path} due to {e}')
+            self.__process_task(asset_data_document=asset_data_document, s3_output_path=s3_output_path)
+        except (KeyboardInterrupt,Exception) as e:
+            self.s3_client.unlock_files_on_exception()
+            raise e
 
-
-    def process_task(self, asset_data_document: AssetDataDocument, s3_output_path: str):
+    def __process_task(self, asset_data_document: AssetDataDocument, s3_output_path: str):
         s3_client = ClientS3()
         locked_s3_path = self.s3_client.lock_file(s3_path=asset_data_document.s3_path)
         Path(asset_data_document.local_input_folder_path).mkdir(parents=True, exist_ok=True)
