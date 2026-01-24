@@ -12,6 +12,7 @@ dependencies = [
     "boto3",
     "numpy",
     "shapely",
+    "pydantic",
 ]
 
 [dependency-groups]

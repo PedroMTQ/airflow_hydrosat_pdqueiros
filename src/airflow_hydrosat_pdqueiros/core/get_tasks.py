@@ -32,7 +32,7 @@ def is_valid_field_run_request(s3_client: ClientS3,
 
     output_box_file = os.path.join(BOXES_FOLDER_OUTPUT, f'bounding_box_{box_id}.jsonl')
     if not s3_client.file_exists(output_box_file):
-        logger.info(f'Field data {s3_path} skipped since output box file {output_box_file} is not available yet')
+        logger.debug(f'Field data {s3_path} skipped since output box file {output_box_file} is not available yet')
         return False
     # if the field is the first one given the date limits, you can go ahead and process
     if date_obj == earliest_date:
@@ -41,8 +41,8 @@ def is_valid_field_run_request(s3_client: ClientS3,
     current_date_index = sorted_dates.index(date_obj)
     previous_date = sorted_dates[current_date_index-1]
     previous_date_str = previous_date.strftime(DATE_FORMAT)
-    previous_date_s3_input_file_pattern = rf'fields\/input\/{box_id}\/fields_{previous_date_str}(.*)?\.jsonl$'
-    previous_date_s3_output_file_pattern = rf'fields\/output\/{box_id}\/fields_{previous_date_str}(.*)?\.jsonl$'
+    previous_date_s3_input_file_pattern = rf'fields\/input\/{box_id}\/fields_{previous_date_str}\.jsonl$'
+    previous_date_s3_output_file_pattern = rf'fields\/output\/{box_id}\/fields_{previous_date_str}\.jsonl$'
     # we get the output files of the previous date
     previous_date_output_s3_files = set(s3_client.get_files(prefix=FIELDS_FOLDER_OUTPUT,
                                                             file_name_pattern=previous_date_s3_output_file_pattern,
@@ -117,6 +117,6 @@ def get_bounding_boxes_tasks() -> list[dict]:
 
 if __name__ == '__main__':
     fields_tasks = get_fields_tasks()
-    bounding_boxes_tasks = get_bounding_boxes_tasks()
     print('field_tasks', fields_tasks)
+    bounding_boxes_tasks = get_bounding_boxes_tasks()
     print('bounding_boxes_tasks', bounding_boxes_tasks)

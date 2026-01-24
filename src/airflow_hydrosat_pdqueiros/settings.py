@@ -4,7 +4,7 @@ import os
 SERVICE_NAME = 'airflow_hydrosat_pdqueiros'
 CODE_VERSION = importlib.metadata.version(SERVICE_NAME)
 
-ROOT = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+ROOT = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 DATA = os.path.join(ROOT, 'data')
 TEMP = os.path.join(ROOT, 'tmp')
 TESTS = os.path.join(ROOT, 'tests')
@@ -50,3 +50,4 @@ RETRY_LIMIT = int(os.getenv('RETRY_LIMIT', '100'))
 # REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', 'admin')
 # REDIS_DB = int(os.environ.get('REDIS_DB', '0'))
 
+SLEEP_TIME = int(os.getenv('SLEEP_TIME', '1'))

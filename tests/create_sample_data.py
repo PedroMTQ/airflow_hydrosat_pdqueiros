@@ -29,7 +29,11 @@ def generate_random_coordinates(max_int: int):
     base_y = random.randint(1, max_int)
     width = random.randint(1, max_int)
     height = random.randint(1, max_int)
-    return base_x, base_y, base_x + width, base_y + height
+    return dict(coordinates_x_min=base_x,
+                              coordinates_y_min=base_y,
+                              coordinates_x_max=base_x + width,
+                              coordinates_y_max=base_y + height,
+                )
 
 def generate_fields_files():
     Path(FIELDS_FOLDER)
@@ -38,12 +42,13 @@ def generate_fields_files():
             day_str = f'0{day}'
         sample_date = f"2025-06-{day_str}"
         for _ in range(random.choice([1,2,3])):
-            file_name = f'fields_{sample_date}_{get_uuid()}.jsonl'
+            file_name = f'fields_{sample_date}.jsonl'
             # we allocate a field to each box for simplicity sake -> later used for partitioning the assets
             for _ in range(random.randint(10,30)):
                 box_id = get_box_id()
-                field_data = [*generate_random_coordinates(max_int=10)] + [box_id]
-                data = FieldDocument(*field_data).to_dict()
+                field_data = generate_random_coordinates(max_int=10)
+                field_data['box_id'] = box_id
+                data = FieldDocument(**field_data).model_dump()
                 Path(os.path.join(FIELDS_FOLDER, box_id)).mkdir(parents=True, exist_ok=True)
                 with open(os.path.join(FIELDS_FOLDER, box_id, file_name), 'a+') as file:
                     file.write(f'{json.dumps(data)}\n')
@@ -52,8 +57,9 @@ def generate_bounding_box_files():
     Path(BOXES_FOLDER).mkdir(parents=True, exist_ok=True)
     for box_id in RANDOM_BOX_IDS:
         file_name = f'bounding_box_{box_id}.jsonl'
-        box_data = [*generate_random_coordinates(max_int=100)] + [box_id]
-        data = BoundingBoxDocument(*box_data).to_dict()
+        box_data = generate_random_coordinates(max_int=10)
+        box_data['box_id'] = box_id
+        data = BoundingBoxDocument(**box_data).model_dump()
         with open(os.path.join(BOXES_FOLDER, file_name), 'w+') as file:
             file.write(f'{json.dumps(data)}\n')
 

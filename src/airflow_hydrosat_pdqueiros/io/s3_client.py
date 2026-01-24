@@ -64,6 +64,35 @@ class ClientS3():
             raise Exception(f"Error accessing bucket {self.bucket_name} due to: {e}") from e
 
     def get_files(self, prefix: str, file_name_pattern: str, match_on_s3_path: bool=False) -> list[str]:
+        """
+            Retrieves a list of S3 object keys from a specific bucket filtered by prefix and regex pattern.
+
+            This method queries the S3 bucket defined in the instance for objects under a given 
+            prefix. It then filters the results based on a regular expression, matching either 
+            the file name (default) or the full S3 path.
+
+            Args:
+                prefix: The S3 folder/directory prefix to search within (e.g., 'data/input/').
+                file_name_pattern: A regular expression string used to match against the 
+                    discovered files (e.g., r'.*\.jsonl$').
+                match_on_s3_path: If True, the regex will be evaluated against the full 
+                    S3 Key (path + filename). If False (default), it only evaluates against 
+                    the filename.
+
+            Returns:
+                list[str]: A list of S3 keys (strings) that satisfy both the prefix and 
+                    the regex pattern. Returns an empty list if no matches are found or 
+                    if the prefix is empty.
+
+            Raises:
+                botocore.exceptions.ClientError: If the S3 list operation fails due to 
+                    permissions, network issues, or bucket non-existence.
+                re.error: If the provided `file_name_pattern` is not a valid regular expression.
+
+            Example:
+                >>> s3_client.get_files(prefix='raw/', file_name_pattern=r'sensor_.*\.csv')
+                ['raw/sensor_01.csv', 'raw/sensor_02.csv']
+            """
         res = []
         try:
             response = self.__client.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix)
@@ -166,5 +195,6 @@ class ClientS3():
 if __name__ == '__main__':
     client = ClientS3()
     # print(client.file_exists('boxes/output/bounding_box_01976a1225ca7e32a2daad543cb4391e.jsonl'))
-    # print(client.get_files(FIELDS_FOLDER_OUTPUT, file_name_pattern='fields/input/01976dbcbdb77dc4b9b61ba545503b77/fields_2025-06-04-BATCH_2.jsonl', match_on_s3_path=True))
-    print(client.get_input_bounding_boxes())
+    print(client.get_files(BOXES_FOLDER_OUTPUT,
+                           file_name_pattern='bounding_box_01978c3831bc710c9e0663456e70de1e.jsonl',
+                           match_on_s3_path=True))

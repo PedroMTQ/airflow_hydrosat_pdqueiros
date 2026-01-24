@@ -2,23 +2,28 @@ import os
 
 from airflow_hydrosat_pdqueiros.io.s3_client import ClientS3
 from airflow_hydrosat_pdqueiros.io.logger import logger
+from airflow_hydrosat_pdqueiros.core.tasks.base_task import BaseTask
 from airflow_hydrosat_pdqueiros.core.documents.asset_data_document import AssetDataDocument
+from airflow_hydrosat_pdqueiros.core.documents.bounding_box_document import BoundingBoxDocument
 from pathlib import Path
 import json
 
 
-class BaseTask():
+class BoundingBoxTask(BaseTask):
     def __init__(self):
-        self.s3_client = ClientS3()
+        super().__init__()
 
-    def run(self, asset_data_document: AssetDataDocument, s3_output_path: str):
-        try:
-            self.__process_task(asset_data_document=asset_data_document, s3_output_path=s3_output_path)
-        except (KeyboardInterrupt,Exception) as e:
-            self.s3_client.unlock_files_on_exception()
-            raise e
+    def process_task(self, asset_data_document: AssetDataDocument, s3_output_path: str):
+        '''
+        {"box_id": "01978c3831bc710c9e0663456e70de1e",
+          "coordinates_x_min": 59,
+            "coordinates_y_min": 48,
+              "coordinates_x_max": 127,
+                "coordinates_y_max": 81,
+                  "irrigation_array": [[1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0], [1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0],...]
+                  "is_processed": false}
+        '''
 
-    def __process_task(self, asset_data_document: AssetDataDocument, s3_output_path: str):
         s3_client = ClientS3()
         locked_s3_path = self.s3_client.lock_file(s3_path=asset_data_document.s3_path)
         Path(asset_data_document.local_input_folder_path).mkdir(parents=True, exist_ok=True)
@@ -29,20 +34,14 @@ class BaseTask():
         with open(asset_data_document.local_output_file_path, 'w+') as file:
             for line in open(asset_data_document.local_input_file_path):
                 data = json.loads(line)
-                asset_document = asset_data_document.document_class.from_dict(data=data)
-                if asset_document:
-                    if asset_document.is_valid():
-                        asset_document.process()
-                        file.write(f'{json.dumps(asset_document.to_dict())}\n')
+                try:
+                    asset_document = BoundingBoxDocument(**data)
+                except Exception as e:
+                    logger.exception(e)
+                    continue
+                asset_document.process()
+                file.write(f'{json.dumps(asset_document.model_dump())}\n')
         s3_client.upload_file(local_path=asset_data_document.local_output_file_path,
                               s3_path=s3_output_path)
         self.s3_client.move_file(current_path=locked_s3_path, new_path=asset_data_document.archived_s3_path)
-        for file_type, file_path in (
-            ('input', asset_data_document.local_input_file_path),
-            ('output', asset_data_document.local_output_file_path)
-            ):
-            try:
-                os.remove(file_path)
-                logger.debug(f"Deleted temp {file_type} file {file_path}")
-            except Exception as e:
-                logger.error(f"Failed to delete temp {file_type} file {file_path}: {e}")
+        asset_data_document.delete_local()

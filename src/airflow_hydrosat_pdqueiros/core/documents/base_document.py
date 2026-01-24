@@ -1,44 +1,41 @@
-from dataclasses import dataclass, field
-
+from abc import abstractmethod
+from typing import Optional, Any
 import numpy as np
 from airflow_hydrosat_pdqueiros.io.logger import logger
+from pydantic import BaseModel, Field, ConfigDict, field_serializer, field_validator
 
+class BaseDocument(BaseModel):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True, # Required for np.ndarray
+        validate_assignment=True      # Ensures validation on attribute updates
+    )
+    coordinates_x_min: float = Field(repr=False)
+    coordinates_y_min: float = Field(repr=False)
+    coordinates_x_max: float = Field(repr=False)
+    coordinates_y_max: float = Field(repr=False)
+    box_id: str = Field(description='ID of this data asset')
+    irrigation_array: Optional[np.ndarray] = Field(default=None, repr=False)
+    irrigation_density: Optional[float] = Field(default=None,description='Irrigation density for all pixels in the assets area')
+    is_processed: bool = Field(default=False, description='Processing status of this asset')
 
-@dataclass
-class BaseDocument():
-    coordinates_x_min: float = field(repr=False)
-    coordinates_y_min: float = field(repr=False)
-    coordinates_x_max: float = field(repr=False)
-    coordinates_y_max: float = field(repr=False)
-    box_id : str
-    irrigation_array: np.array = field(default=None)
-    is_processed: np.array = field(default=False)
-
+    @field_validator('irrigation_array', mode='before')
     @classmethod
-    def from_dict(cls, data: dict):
-        if isinstance(data.get('irrigation_array'), list):
-            data['irrigation_array'] = np.array(data['irrigation_array'])
-        try:
-            return cls(**data)
-        except Exception as e:
-            logger.exception(e)
-            return None
+    def validate_numpy_array(cls, value: Any) -> Any:
+        """Converts lists to numpy arrays automatically during initialization."""
+        if isinstance(value, list):
+            return np.array(value)
+        return value
 
-
-    # fake processing
+    @abstractmethod
     def process(self):
-        self.is_processed = True
+        return
 
-    def to_dict(self):
-        return {
-                'box_id': self.box_id,
-                'coordinates_x_min': self.coordinates_x_min,
-                'coordinates_y_min': self.coordinates_y_min,
-                'coordinates_x_max': self.coordinates_x_max,
-                'coordinates_y_max': self.coordinates_y_max,
-                'irrigation_array': self.irrigation_array.tolist(),
-                'is_processed': self.is_processed,
-        }
+    @field_serializer('irrigation_array')
+    def serialize_irrigation_array(self, value: Optional[np.ndarray]):
+        if value is None:
+            return None
+        return value.tolist()
+
 
 if __name__ == '__main__':
     base_doc = BaseDocument(0,0,2,2,3)
